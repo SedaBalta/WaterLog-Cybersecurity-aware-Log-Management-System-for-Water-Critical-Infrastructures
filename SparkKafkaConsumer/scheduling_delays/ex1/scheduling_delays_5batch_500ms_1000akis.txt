@@ -1,0 +1,16 @@
+Batch ID: 0, Trigger Execution: 950 ms
+Batch ID: 1, Trigger Execution: 1464 ms
+Batch ID: 2, Trigger Execution: 972 ms
+Batch ID: 3, Trigger Execution: 970 ms
+Batch ID: 4, Trigger Execution: 973 ms
+Batch ID: 5, Trigger Execution: 976 ms
+Batch ID: 6, Trigger Execution: 975 ms
+Batch ID: 7, Trigger Execution: 993 ms
+Batch ID: 8, Trigger Execution: 982 ms
+Batch ID: 9, Trigger Execution: 985 ms
+Batch ID: 10, Trigger Execution: 990 ms
+Batch ID: 11, Trigger Execution: 983 ms
+Batch ID: 12, Trigger Execution: 990 ms
+Batch ID: 13, Trigger Execution: 1116 ms
+Batch ID: 14, Trigger Execution: 758 ms
+Batch ID: 15, Trigger Execution: 1 ms
