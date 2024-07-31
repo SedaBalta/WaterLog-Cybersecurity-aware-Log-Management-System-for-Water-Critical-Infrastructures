@@ -120,3 +120,21 @@ For starting
   systemctl status nginx
 ```
 
+## WaterLog Dataset Access
+
+You can access the dataset from the drive link below.
+
+https://drive.google.com/file/d/1j7i8MJEXHM2yXYdXZ9g7rEDgfPhJB7Wd/view?usp=sharing
+
+## How do I run the project?
+
+Install the dependencies in the pom.xml file located in the SparkKafkaConsumer folder.
+
+Then, after the above installations and work are completed, use the files located in the src/main/java directory.
+
+batch.java -> Used for training.
+realtime.java -> Used for real-time data flow and anomaly distribution over the recorded model. The myCustomFunc() function performs distribution by filtering over two different topics.
+
+realtimeListenersdelay -> Used to analyze the performance of the system and calculate the delay times between batches.
+
+Other performance tests are performed via the Spark web port (localhost:4040).
