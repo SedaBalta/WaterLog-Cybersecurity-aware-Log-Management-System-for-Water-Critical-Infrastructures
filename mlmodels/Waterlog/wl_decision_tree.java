@@ -1,39 +1,21 @@
 package mlModels.waterlog;
-
 import org.apache.spark.ml.Pipeline;
 import org.apache.spark.ml.PipelineModel;
 import org.apache.spark.ml.PipelineStage;
-import org.apache.spark.ml.classification.LogisticRegression;
-import org.apache.spark.ml.classification.RandomForestClassifier;
-import org.apache.spark.ml.classification.NaiveBayes;
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator;
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator;
-import org.apache.spark.ml.feature.StringIndexer;
-import org.apache.spark.ml.feature.StringIndexerModel;
 import org.apache.spark.ml.feature.VectorAssembler;
-import org.apache.spark.ml.tree.impl.RandomForest;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
-
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.logging.Logger;
-
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.*;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-import org.apache.spark.ml.classification.NaiveBayes;
-import org.apache.spark.ml.classification.NaiveBayesModel;
+import org.apache.spark.ml.classification.DecisionTreeClassifier;
 
-public class wl_naive_bayes {
-
-    private static final String MODEL_PATH="/home/waterquality/IdeaProjects/SparkKafkaConsumer/resources/ml-models/waterlog/naivebayes";
-
+public class wl_decision_tree {
+    private static final String MODEL_PATH="/home/waterquality/IdeaProjects/SparkKafkaConsumer/resources/ml-models/waterlog/decisiontree";
     public static void main(String[] args) throws IOException{
         //DL,DP,TL,TF,TP,EL,EF,EP,CL,CPF,CVF,CP,CV,TKL,TVF,TV,Normal/Attack
         StructType schema = new StructType()
@@ -85,65 +67,64 @@ public class wl_naive_bayes {
 
         // Assuming encodedDF is your DataFrame
         VectorAssembler assembler = new VectorAssembler()
-                .setInputCols(new String[]{"DL","DP","TL","TF","TP","EL","EF","EP","CL","CPF","CVF","CP","CV","TKL","TVF","TV"})
-                .setOutputCol("features");
+                .setInputCols(new String[]{"DL", "DP", "TL", "TF", "TP", "EL", "EF", "EP", "CL", "CPF", "CVF", "CP", "CV", "TKL", "TVF", "TV"})
+                .setOutputCol("features_vector");
 
-        // Assuming encodedDF is your DataFrame
-        Dataset<Row> vectorAssemblerDF = assembler.transform(encodedDF);
-        System.out.println("vectorAssemblerDF");
-        vectorAssemblerDF.show();
-        vectorAssemblerDF.printSchema();
-
-        NaiveBayes nbClassifier = new NaiveBayes()
+        // Decision Tree sınıflandırıcı tanımlama
+        DecisionTreeClassifier dtClassifier = new DecisionTreeClassifier()
                 .setLabelCol("label_index")
-                .setSmoothing(8.0)
-                .setModelType("multinomial");
+                .setFeaturesCol("features_vector")
+                .setMaxDepth(5);
 
-        //multi kullanabilmek için .setfamily("multinominal") yapılmalı.https://spark.apache.org/docs/3.0.1/ml-classification-regression.html
+        // Pipeline aşamaları
+        Pipeline pipeline = new Pipeline().setStages(new PipelineStage[]{assembler, dtClassifier});
 
-        // Pipeline işlemleri başladı.
-        Pipeline pipeline = new Pipeline().setStages(new PipelineStage[]{assembler, nbClassifier});
-        PipelineModel model = pipeline.fit(encodedDF);
+        // Veri setini eğitim ve test olarak ayırma
+        Dataset<Row>[] splits = encodedDF.randomSplit(new double[]{0.8, 0.2}, 1234L);
+        Dataset<Row> trainingData = splits[0];
+        Dataset<Row> testData = splits[1];
 
-        // Modeli kaydet
+        // Modeli eğitme
+        PipelineModel model = pipeline.fit(trainingData);
+
+        // Modeli kaydetme
         model.write().overwrite().save(MODEL_PATH);
-        System.out.println("Saved");
+        System.out.println("Model saved at: " + MODEL_PATH);
 
-        Dataset<Row> resultDF = model.transform(encodedDF);
-        // Pipeline işlemleri tamamlandı.
+        // Test verileri ile tahmin
+        Dataset<Row> predictions = model.transform(testData);
 
-        // Sonuçları göster
-        System.out.println("resultDF:");
-        resultDF.show();
-        resultDF.printSchema();
+        // Tahmin sonuçlarını göster
+        predictions.select("features_vector", "label_index", "prediction").show();
+
 
         // Performans değerlendirmesi başladı.
         MulticlassClassificationEvaluator evaluator = new MulticlassClassificationEvaluator()
                 .setLabelCol("label_index")
                 .setPredictionCol("prediction")
                 .setMetricName("accuracy");
-        double accuracy = evaluator.evaluate(resultDF);
+        double accuracy = evaluator.evaluate(predictions);
         System.out.println("Accuracy: " + accuracy);
 
         MulticlassClassificationEvaluator f1Evaluator = new MulticlassClassificationEvaluator()
                 .setLabelCol("label_index")
                 .setPredictionCol("prediction")
                 .setMetricName("f1");
-        double f1Score = f1Evaluator.evaluate(resultDF);
+        double f1Score = f1Evaluator.evaluate(predictions);
         System.out.println("F1 Score: " + f1Score);
 
         MulticlassClassificationEvaluator precisionEvaluator = new MulticlassClassificationEvaluator()
                 .setLabelCol("label_index")
                 .setPredictionCol("prediction")
                 .setMetricName("weightedPrecision");
-        double precision = precisionEvaluator.evaluate(resultDF);
+        double precision = precisionEvaluator.evaluate(predictions);
         System.out.println("Precision: " + precision);
 
         MulticlassClassificationEvaluator recallEvaluator = new MulticlassClassificationEvaluator()
                 .setLabelCol("label_index")
                 .setPredictionCol("prediction")
                 .setMetricName("weightedRecall");
-        double recall = recallEvaluator.evaluate(resultDF);
+        double recall = recallEvaluator.evaluate(predictions);
         System.out.println("Recall: " + recall);
 
     }

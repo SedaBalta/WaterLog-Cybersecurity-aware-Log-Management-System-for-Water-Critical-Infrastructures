@@ -2,6 +2,7 @@ package mlModels.waterlog;
 import org.apache.spark.ml.Pipeline;
 import org.apache.spark.ml.PipelineModel;
 import org.apache.spark.ml.PipelineStage;
+import org.apache.spark.ml.classification.RandomForestClassifier;
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator;
 import org.apache.spark.ml.feature.VectorAssembler;
 import org.apache.spark.sql.Dataset;
@@ -12,10 +13,9 @@ import org.apache.spark.sql.types.StructType;
 import java.io.IOException;
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.*;
-import org.apache.spark.ml.classification.DecisionTreeClassifier;
-
-public class wl_decision_tree {
-    private static final String MODEL_PATH="/home/waterquality/IdeaProjects/SparkKafkaConsumer/resources/ml-models/waterlog/decisiontree";
+import org.apache.spark.ml.classification.GBTClassifier;
+public class wl_gbt {
+    private static final String MODEL_PATH="/home/waterquality/IdeaProjects/SparkKafkaConsumer/resources/ml-models/waterlog/gbt";
     public static void main(String[] args) throws IOException{
         //DL,DP,TL,TF,TP,EL,EF,EP,CL,CPF,CVF,CP,CV,TKL,TVF,TV,Normal/Attack
         StructType schema = new StructType()
@@ -76,22 +76,27 @@ public class wl_decision_tree {
         vectorAssemblerDF.show();
         vectorAssemblerDF.printSchema();
 
-        DecisionTreeClassifier dtClassifier = new DecisionTreeClassifier()
+        GBTClassifier gbtClassifier = new GBTClassifier()
                 .setLabelCol("label_index")
-                .setMaxDepth(10)
-                .setFeaturesCol("features");
+                .setFeaturesCol("features")
+                .setMaxBins(20)
+                .setMaxIter(10);
 
         //multi kullanabilmek için .setfamily("multinominal") yapılmalı.https://spark.apache.org/docs/3.0.1/ml-classification-regression.html
 
+        Dataset<Row>[] splits = encodedDF.randomSplit(new double[]{0.8, 0.2}, 1234L);
+        Dataset<Row> trainingData = splits[0];
+        Dataset<Row> testData = splits[1];
+
         // Pipeline işlemleri başladı.
-        Pipeline pipeline = new Pipeline().setStages(new PipelineStage[]{assembler, dtClassifier});
-        PipelineModel model = pipeline.fit(encodedDF);
+        Pipeline pipeline = new Pipeline().setStages(new PipelineStage[]{assembler, gbtClassifier});
+        PipelineModel model = pipeline.fit(trainingData);
 
         // Modeli kaydet
         model.write().overwrite().save(MODEL_PATH);
         System.out.println("Saved");
 
-        Dataset<Row> resultDF = model.transform(encodedDF);
+        Dataset<Row> resultDF = model.transform(testData);
         // Pipeline işlemleri tamamlandı.
 
         // Sonuçları göster

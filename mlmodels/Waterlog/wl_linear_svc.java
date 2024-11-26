@@ -86,16 +86,19 @@ public class wl_linear_svc {
                 .setRegParam(0.1);
 
         //multi kullanabilmek için .setfamily("multinominal") yapılmalı.https://spark.apache.org/docs/3.0.1/ml-classification-regression.html
+        Dataset<Row>[] splits = encodedDF.randomSplit(new double[]{0.8, 0.2}, 1234L);
+        Dataset<Row> trainingData = splits[0];
+        Dataset<Row> testData = splits[1];
 
         // Pipeline işlemleri başladı.
         Pipeline pipeline = new Pipeline().setStages(new PipelineStage[]{assembler, lsvc});
-        PipelineModel model = pipeline.fit(encodedDF);
+        PipelineModel model = pipeline.fit(trainingData);
 
         // Modeli kaydet
         model.write().overwrite().save(MODEL_PATH);
         System.out.println("Saved");
 
-        Dataset<Row> resultDF = model.transform(encodedDF);
+        Dataset<Row> resultDF = model.transform(testData);
         // Pipeline işlemleri tamamlandı.
 
         // Sonuçları göster

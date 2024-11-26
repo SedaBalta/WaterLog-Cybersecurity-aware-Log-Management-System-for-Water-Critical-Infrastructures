@@ -1,24 +1,40 @@
 package mlModels.waterlog;
+
 import org.apache.spark.ml.Pipeline;
 import org.apache.spark.ml.PipelineModel;
 import org.apache.spark.ml.PipelineStage;
-import org.apache.spark.ml.classification.*;
+import org.apache.spark.ml.classification.LogisticRegression;
+import org.apache.spark.ml.classification.RandomForestClassifier;
+import org.apache.spark.ml.classification.NaiveBayes;
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator;
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator;
+import org.apache.spark.ml.feature.StringIndexer;
+import org.apache.spark.ml.feature.StringIndexerModel;
 import org.apache.spark.ml.feature.VectorAssembler;
+import org.apache.spark.ml.tree.impl.RandomForest;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
+
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.logging.Logger;
+
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.*;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.ml.classification.NaiveBayes;
+import org.apache.spark.ml.classification.NaiveBayesModel;
 
-import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator;
-public class wl_mlp {
-    private static final String MODEL_PATH="/home/waterquality/IdeaProjects/SparkKafkaConsumer/resources/ml-models/waterlog/mlp";
+public class wl_naive_bayes {
 
-    public static void main(String[] args) throws IOException {
+    private static final String MODEL_PATH="/home/waterquality/IdeaProjects/SparkKafkaConsumer/resources/ml-models/waterlog/naivebayes";
+
+    public static void main(String[] args) throws IOException{
         //DL,DP,TL,TF,TP,EL,EF,EP,CL,CPF,CVF,CP,CV,TKL,TVF,TV,Normal/Attack
         StructType schema = new StructType()
                 .add("DL", DataTypes.DoubleType)
@@ -37,7 +53,7 @@ public class wl_mlp {
                 .add("TKL", DataTypes.DoubleType)
                 .add("TVF", DataTypes.DoubleType)
                 .add("TV", DataTypes.DoubleType)
-                .add("label", DataTypes.StringType);
+                .add("label",DataTypes.StringType);
 
         SparkSession spark = SparkSession
                 .builder()
@@ -47,9 +63,9 @@ public class wl_mlp {
 
         spark.sparkContext().setLogLevel("ERROR");
 
-        Dataset<Row> df = spark
+        Dataset<Row> df=spark
                 .read()
-                .option("header", true)
+                .option("header",true)
                 .format("csv")
                 .schema(schema)
                 .load("/home/waterquality/IdeaProjects/SparkKafkaConsumer/src/main/resources/Dataset.csv");
@@ -69,7 +85,7 @@ public class wl_mlp {
 
         // Assuming encodedDF is your DataFrame
         VectorAssembler assembler = new VectorAssembler()
-                .setInputCols(new String[]{"DL", "DP", "TL", "TF", "TP", "EL", "EF", "EP", "CL", "CPF", "CVF", "CP", "CV", "TKL", "TVF", "TV"})
+                .setInputCols(new String[]{"DL","DP","TL","TF","TP","EL","EF","EP","CL","CPF","CVF","CP","CV","TKL","TVF","TV"})
                 .setOutputCol("features");
 
         // Assuming encodedDF is your DataFrame
@@ -78,26 +94,26 @@ public class wl_mlp {
         vectorAssemblerDF.show();
         vectorAssemblerDF.printSchema();
 
-        int[] layers = new int[] {16, 5, 4, 2};
-        MultilayerPerceptronClassifier mlp = new MultilayerPerceptronClassifier()
+        NaiveBayes nbClassifier = new NaiveBayes()
                 .setLabelCol("label_index")
-                .setLayers(layers)
-                .setFeaturesCol("features")
-                .setBlockSize(128)
-                .setSeed(1234L)
-                .setMaxIter(50);
+                .setSmoothing(8.0)
+                .setModelType("multinomial");
 
         //multi kullanabilmek için .setfamily("multinominal") yapılmalı.https://spark.apache.org/docs/3.0.1/ml-classification-regression.html
 
+        Dataset<Row>[] splits = encodedDF.randomSplit(new double[]{0.8, 0.2}, 1234L);
+        Dataset<Row> trainingData = splits[0];
+        Dataset<Row> testData = splits[1];
+
         // Pipeline işlemleri başladı.
-        Pipeline pipeline = new Pipeline().setStages(new PipelineStage[]{assembler, mlp});
-        PipelineModel model = pipeline.fit(encodedDF);
+        Pipeline pipeline = new Pipeline().setStages(new PipelineStage[]{assembler, nbClassifier});
+        PipelineModel model = pipeline.fit(trainingData);
 
         // Modeli kaydet
         model.write().overwrite().save(MODEL_PATH);
         System.out.println("Saved");
 
-        Dataset<Row> resultDF = model.transform(encodedDF);
+        Dataset<Row> resultDF = model.transform(testData);
         // Pipeline işlemleri tamamlandı.
 
         // Sonuçları göster
